@@ -30,7 +30,7 @@
 <div class="row">
     <div class="col-12">
         <x-base.card title="Report">
-            <x-base.reportable>
+            <x-base.dataTable>
                 <x-slot name="thead">
                     <tr>
                         <th>Invoice</th>
@@ -47,19 +47,20 @@
                 <x-slot name="tbody">
                     @forelse ($reportData as $data)
                         @php
-                            // $purchaserIsCustomer = $data->purchaser_category_id == (new \App\Enums\UserCategory::CUSTOMER)->value;
-                            // dump(\App\Enums\UserCategoryEnum::CUSTOMER);
+                            $purchaserIsCustomer = $data->purchaser_category_id == $DistributorCategoryEnum->value;
                             $totalOrder = $data->total_price * $data->total_quantity;
 
                             /** @var \App\Services\CommisionService $CommissionService */
-                            $commissionPercent = $CommissionService->commissionPercent($data->noOfD);
-                            $totalPercentage = $CommissionService->commissionAmount($totalOrder, $commissionPercent);
+                            $commissionPercent = $purchaserIsCustomer ?  $CommissionService->commissionPercent($data->noOfD): null;
+                            $totalPercentage = !is_null($commissionPercent) ? $CommissionService->commissionAmount($totalOrder, $commissionPercent) : null;
+
+                            $fullName = $data->distributor_category_id == 1 ?  "$data->referral_first_name  $data->referral_last_name": '';
 
                         @endphp
                     <tr>
                         <td>{{ $data->invoice }}</td>
                         <td>{{ $data->customer_first_name }} {{ $data->customer_last_name }}</td>
-                        <td>{{ $data->referral_first_name }} {{ $data->referral_last_name }}</td>
+                        <td>{{ $fullName }}</td>
                         <td>{{ $data->noOfD }}</td>
                         <td>{{ date('d/m/Y', strtotime($data->order_date)) }}</td>
                         <td>{{ $totalOrder }}</td>
@@ -81,7 +82,7 @@
                     </tr>
                     @endforelse
                 </x-slot>
-            </x-base.reportable>
+            </x-base.dataTable>
         </x-base.card>
     </div>
 </div>

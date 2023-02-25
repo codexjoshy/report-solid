@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
     class CommissionReport implements ReportInterface
     {
-        public $data;
+        public $data ;
 
         // public function orders11()
         // {
@@ -54,21 +54,67 @@ use Illuminate\Support\Facades\DB;
                     'distributor.last_name as referral_last_name',
                     'categories.id as purchaser_category_id',
                     'categories.name as purchaser_category_name',
-                    DB::raw('(SELECT COUNT(*) FROM users WHERE users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) as noOfD'),
+                    'distributor_category.id as distributor_category_id',
+                    'distributor_category.name as distributor_category_name',
+                    DB::raw('(SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD'),
                     DB::raw('SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity'),
                     // DB::raw('SUM(products.price) as total_price'),
                 )
                 ->join('order_items', 'orders.id', '=', 'order_items.order_id')
                 ->join('users', 'users.id', '=', 'orders.purchaser_id')
-                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
-                ->join('categories', 'categories.id', '=', 'user_category.category_id')
-                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
                 ->leftJoin('users as distributor', 'distributor.id', '=', 'users.referred_by')
-                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name', 'noOfD');
+                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
+                ->leftJoin('user_category as user_distributor_category', 'user_distributor_category.user_id', '=', 'distributor.id')
+
+                ->join('categories', 'categories.id', '=', 'user_category.category_id')
+                ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
+                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD');
 
             return $this;
         }
 
+        /**
+         * used to add a where clause
+         *
+         * @param string $key only accepts ['first_name', 'last_name', 'id']
+         * @param string $value
+         * @return
+         */
+        public function filterBy(array $keys, string $value)
+        {
+
+            $this->data->where(function($query)use($keys, $value){
+                foreach ($keys as $key) {
+                    if($key == 'id'){
+                        $query->orWhere("distributor.$key", "$value");
+                    }else{
+                        $query->orWhere("distributor.$key", 'LIKE', "%$value%");
+                    }
+                }
+            });
+            return $this;
+        }
+
+        public function filterByDate(?string $from, ?string $to=null)
+        {
+            $this->data->where(function($query)use($from, $to){
+                $query->when($from, fn($q)=> $q->whereDate('orders.order_date', '>=', $from))
+                    ->when($to, fn($q)=>$q->whereDate('orders.order_date', '<=', $to));
+            });
+            return $this;
+        }
+
+        public function generate()
+        {
+            return $this->data->get();
+        }
+
+        public function when($value, callable $callBack)
+        {
+            if($value) $this->data = call_user_func($callBack, $this);
+            return $this;
+        }
         public function query()
         {
             $this->data = DB::table('orders')
@@ -83,17 +129,22 @@ use Illuminate\Support\Facades\DB;
                     'distributor.last_name as referral_last_name',
                     'categories.id as purchaser_category_id',
                     'categories.name as purchaser_category_name',
-                    DB::raw('(SELECT COUNT(*) FROM users WHERE users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) as noOfD'),
+                    'distributor_category.id as distributor_category_id',
+                    'distributor_category.name as distributor_category_name',
+                    DB::raw('(SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD'),
                     DB::raw('SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity'),
                     // DB::raw('SUM(products.price) as total_price'),
                 )
                 ->join('order_items', 'orders.id', '=', 'order_items.order_id')
                 ->join('users', 'users.id', '=', 'orders.purchaser_id')
-                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
-                ->join('categories', 'categories.id', '=', 'user_category.category_id')
-                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
                 ->leftJoin('users as distributor', 'distributor.id', '=', 'users.referred_by')
-                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name', 'noOfD');
+                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
+                ->leftJoin('user_category as user_distributor_category', 'user_distributor_category.user_id', '=', 'distributor.id')
+
+                ->join('categories', 'categories.id', '=', 'user_category.category_id')
+                ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
+                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD');
 
             return $this;
         }
@@ -158,45 +209,6 @@ use Illuminate\Support\Facades\DB;
                 ->paginate($perPage);
 
             return $results;
-        }
-
-
-
-        /**
-         * used to add a where clause
-         *
-         * @param string $key only accepts ['first_name', 'last_name', 'id']
-         * @param string $value
-         * @return
-         */
-        public function filterBy(array $keys, string $value)
-        {
-            // throw_if(!in_array($key, ['first_name', 'last_name']), new Exception('invalid key passed to filter'));
-
-            // if (in_array($key, ['first_name', 'last_name'])) $key = "users.$key";
-            $this->data->where(function($query)use($keys, $value){
-                foreach ($keys as $key) {
-                    if($key == 'id'){
-                        $query->orWhere("distributor.$key", "$value");
-                    }else{
-                        $query->orWhere("distributor.$key", 'LIKE', "%$value%");
-                    }
-                }
-            });
-            return $this;
-        }
-
-        public function filterByDate(?string $from, ?string $to=null)
-        {
-            $this->data->where(function($query)use($from, $to){
-                $query->when($from, fn($q)=> $q->whereDate('orders.order_date', '>=', $from))
-                    ->when($to, fn($q)=>$q->whereDate('orders.order_date', '<=', $to));
-            });
-            return $this;
-        }
-        public function generate()
-        {
-            return $this->data->get();
         }
 
     }

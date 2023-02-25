@@ -52,6 +52,7 @@ class DistributorsReport implements ReportInterface
 
     public function generate()
     {
+        // dump($this->data->get());
         return $this->data->get();
     }
 }
