@@ -19,7 +19,7 @@ class ReportController extends Controller
         $CommissionService = (new CommissionService);
         $CustomerCategoryEnum = UserCategoryEnum::CUSTOMER;
         $DistributorCategoryEnum = UserCategoryEnum::DISTRIBUTOR;
-        return view('commission', compact('reportData', 'request', 'CommissionService', 'OrderService', 'CustomerCategoryEnum','DistributorCategoryEnum'));
+        return view('commission', compact('reportData', 'request', 'CommissionService', 'CustomerCategoryEnum','DistributorCategoryEnum'));
     }
 
     public function distributorReport(Request $request, DistributorsReport $report)

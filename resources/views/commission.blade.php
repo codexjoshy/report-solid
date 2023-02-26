@@ -47,7 +47,7 @@
                 <x-slot name="tbody">
                     @forelse ($reportData as $data)
                         @php
-                            $purchaserIsCustomer = $data->purchaser_category_id == $DistributorCategoryEnum->value;
+                            $purchaserIsCustomer = $data->purchaser_category_id == $CustomerCategoryEnum->value;
 
                             $totalOrder = $data->total_price * $data->total_quantity;
 
