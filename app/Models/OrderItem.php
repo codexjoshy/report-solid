@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class OrderItem extends Model
 {
+    protected $table = "order_items";
     use HasFactory;
     /**
      * The products that belong to the OrderItem

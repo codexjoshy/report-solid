@@ -16,14 +16,23 @@
                     </tr>
                 </x-slot>
                 <x-slot name="tbody">
-                    @foreach ($reportData as $data)
-
+                    @foreach ($reportData as $key=> $data)
+                    @php
+                        $currentValue= $data;
+                        $previousValue = null;
+                        if ($key > 0) {
+                            $previousValue = $reportData[$key-1];
+                        }
+                        if(optional($currentValue)->total_order != optional($previousValue)->total_order){
+                            ++$loop->index;
+                        }
+                    @endphp
                     <tr>
-                        <td>{{ ++$loop->index }}</td>
+                        <td>{{ $loop->index}}</td>
                         <td>
                             {{ $data->first_name }} {{ $data->last_name }}
                         </td>
-                        <td>{{ $data->total_order }}</td>
+                        <td>${{ number_format($data->total_order, 2) }}</td>
                     </tr>
                     @endforeach
                 </x-slot>

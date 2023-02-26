@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use \Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use \Illuminate\Database\Eloquent\Relations\HasMany;
+use \Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Order extends Model
 {
     use HasFactory;
@@ -27,5 +28,24 @@ class Order extends Model
     public function purchaser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'purchaser_id', 'id');
+    }
+
+    /**
+     * Get all of the items for the Order
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+    /**
+     * Get all of the products for the Order
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function products(): HasManyThrough
+    {
+        return $this->hasManyThrough(Product::class, OrderItem::class,  );
     }
 }

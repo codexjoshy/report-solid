@@ -30,7 +30,7 @@
 <div class="row">
     <div class="col-12">
         <x-base.card title="Report">
-            <x-base.dataTable>
+            <x-base.reportable>
                 <x-slot name="thead">
                     <tr>
                         <th>Invoice</th>
@@ -48,13 +48,23 @@
                     @forelse ($reportData as $data)
                         @php
                             $purchaserIsCustomer = $data->purchaser_category_id == $DistributorCategoryEnum->value;
+
                             $totalOrder = $data->total_price * $data->total_quantity;
 
                             /** @var \App\Services\CommisionService $CommissionService */
                             $commissionPercent = $purchaserIsCustomer ?  $CommissionService->commissionPercent($data->noOfD): null;
                             $totalPercentage = !is_null($commissionPercent) ? $CommissionService->commissionAmount($totalOrder, $commissionPercent) : null;
 
-                            $fullName = $data->distributor_category_id == 1 ?  "$data->referral_first_name  $data->referral_last_name": '';
+                            $fullName = $data->distributor_category_id == $DistributorCategoryEnum->value ?  "$data->referral_first_name  $data->referral_last_name": '';
+
+                            $productNames = explode(", ",$data->product_names ?? "");
+                            $productSkus = explode(", ",$data->product_skus ?? "");
+                            $productPrices = explode(", ",$data->product_prices ?? "");
+                            $productQuantities = explode(", ",$data->product_quantities ?? "");
+
+                            $products = array_map(function($item, $item2, $item3, $item4){
+                                    return ["name"=>$item, "sku"=>$item2, "price"=>$item3, "quantity"=>$item4];
+                                }, $productNames, $productSkus, $productPrices, $productQuantities) ??[];
 
                         @endphp
                     <tr>
@@ -64,14 +74,38 @@
                         <td>{{ $data->noOfD }}</td>
                         <td>{{ date('d/m/Y', strtotime($data->order_date)) }}</td>
                         <td>{{ $totalOrder }}</td>
-                        <td>{{ $commissionPercent }}</td>
-                        <td>{{ $totalPercentage }}</td>
+                        <td>{{ $commissionPercent ? "$commissionPercent%":'' }}</td>
+                        <td>{{ number_format($totalPercentage,2) }}</td>
                         <td>
-                            <x-modal-button class="btn-info btn-sm" key="view-">
+                            <x-modal-button class="btn-info btn-sm" key="view-{{ $data->invoice }}">
                                 View Items
                             </x-modal-button>
-                            <x-modal title="" key="view-"
+                            <x-modal title="INVOICE {{ $data->invoice }}" key="view-{{ $data->invoice }}"
                                 data-backdrop="static">
+                                <x-base.table>
+                                    <x-slot name='thead'>
+                                        <tr>
+                                            <th>SKU</th><th>Product Name</th><th>Price</th><th>Quantity</th><th>Total</th>
+                                        </tr>
+                                    </x-slot>
+                                    <x-slot name='tbody'>
+                                        @foreach ($products as $product)
+                                            @php
+                                            $quantity = (int)  $product['quantity'];
+                                            $price = (float) $product['price'];
+                                            $total = $quantity * $price;
+
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $product['sku'] }} </td>
+                                                <td>{{ $product['name'] }}</td>
+                                                <td>{{ $product['price'] }}</td>
+                                                <td>{{ $product['quantity'] }}</td>
+                                                <td>{{ $total }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </x-slot>
+                                </x-base.table>
                             </x-modal>
                         </td>
                     </tr>
@@ -82,7 +116,7 @@
                     </tr>
                     @endforelse
                 </x-slot>
-            </x-base.dataTable>
+            </x-base.reportable>
         </x-base.card>
     </div>
 </div>

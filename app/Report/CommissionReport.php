@@ -4,47 +4,74 @@ namespace App\Report;
 use App\Interfaces\ReportInterface;
 use App\Models\Order;
 use Exception;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
     class CommissionReport implements ReportInterface
     {
-        public $data ;
+        public Builder $data ;
 
-        // public function orders11()
+        // public function orders()
         // {
-        //     $this->data =
-        //     DB::table('orders')
+        //     $this->data = DB::table('orders')
         //         ->select(
         //             'orders.id',
         //             'orders.invoice_number as invoice',
         //             'orders.order_date',
         //             'users.first_name as customer_first_name',
         //             'users.last_name as customer_last_name',
-
         //             'orders.purchaser_id',
         //             'distributor.first_name as referral_first_name',
         //             'distributor.last_name as referral_last_name',
         //             'categories.id as purchaser_category_id',
         //             'categories.name as purchaser_category_name',
-        //             'totalReferred.noOfD',
-        //             DB::raw('sum(products.price) as total_price')
+        //             'distributor_category.id as distributor_category_id',
+        //             'distributor_category.name as distributor_category_name',
+        //             DB::raw('(SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD'),
+        //             DB::raw('SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity'),
+        //             // DB::raw('SUM(products.price) as total_price'),
         //         )
         //         ->join('order_items', 'orders.id', '=', 'order_items.order_id')
         //         ->join('users', 'users.id', '=', 'orders.purchaser_id')
-        //         ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
-        //         ->join('categories', 'categories.id', '=', 'user_category.category_id')
-        //         ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
         //         ->leftJoin('users as distributor', 'distributor.id', '=', 'users.referred_by')
-        //         ->leftJoin(DB::raw('(select users.referred_by, count(users.referred_by) noOfD from users group by users.referred_by) totalReferred'), 'users.referred_by', '=', 'totalReferred.referred_by')
-        //         ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name', 'noOfD');
+        //         ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
+        //         ->leftJoin('user_category as user_distributor_category', 'user_distributor_category.user_id', '=', 'distributor.id')
+
+        //         ->join('categories', 'categories.id', '=', 'user_category.category_id')
+        //         ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
+        //         ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+        //         ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD');
+
         //     return $this;
         // }
+        public function FunctionName()
+        {
+            $results = DB::table('orders')
+            ->select(
+                'orders.id AS order_id',
+                'orders.order_date',
+                'users.name AS purchaser_name',
+                'users.referred_by AS referrer_name',
+                DB::raw('COUNT(DISTINCT referrals.referral_id) AS referrals_count'),
+                DB::raw("GROUP_CONCAT(DISTINCT CONCAT(products.sku, ':', products.name, ' ($', products.price, ')') ORDER BY products.name ASC SEPARATOR ', ') AS products_info")
+            )
+            ->join('order_products', 'orders.id', '=', 'order_products.order_id')
+            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->join('users', 'orders.purchaser_id', '=', 'users.id')
+            ->leftJoin(DB::raw("(SELECT id AS referral_id, referred_by, created_at FROM users WHERE referred_by IS NOT NULL) AS referrals"), function ($join) {
+                $join->on('users.referred_by', '=', 'referrals.referred_by')
+                    ->whereRaw('referrals.created_at <= orders.order_date');
+            })
+            ->groupBy('orders.id')
+            ->orderByDesc('orders.order_date')
+            ->get();
+        }
 
-        public function orders()
+        public function query()
         {
             $this->data = DB::table('orders')
                 ->select(
-                    'orders.id',
+                    'orders.id as orderId',
                     'orders.invoice_number as invoice',
                     'orders.order_date',
                     'users.first_name as customer_first_name',
@@ -56,9 +83,16 @@ use Illuminate\Support\Facades\DB;
                     'categories.name as purchaser_category_name',
                     'distributor_category.id as distributor_category_id',
                     'distributor_category.name as distributor_category_name',
-                    DB::raw('(SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD'),
-                    DB::raw('SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity'),
-                    // DB::raw('SUM(products.price) as total_price'),
+                    DB::raw("
+                        GROUP_CONCAT(DISTINCT products.name ORDER BY products.name ASC SEPARATOR ', ') AS product_names,
+                        GROUP_CONCAT(DISTINCT products.sku ORDER BY products.name ASC SEPARATOR ', ') AS product_skus,
+                        GROUP_CONCAT( products.price ORDER BY products.name ASC SEPARATOR ', ') AS product_prices,
+                        GROUP_CONCAT( order_items.quantity ORDER BY products.name ASC SEPARATOR ', ') AS product_quantities"
+                    ),
+                    DB::raw("
+                        (SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(users.enrolled_date) <= date(orders.order_date)) AND u_c.category_id=1)  as noOfD"
+                    ),
+                    DB::raw("SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity"),
                 )
                 ->join('order_items', 'orders.id', '=', 'order_items.order_id')
                 ->join('users', 'users.id', '=', 'orders.purchaser_id')
@@ -69,10 +103,53 @@ use Illuminate\Support\Facades\DB;
                 ->join('categories', 'categories.id', '=', 'user_category.category_id')
                 ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
                 ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD');
+                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD')
+                ->orderByDesc('orders.order_date');
 
             return $this;
         }
+        public function query1()
+        {
+            $this->data = DB::table('orders')
+                ->select(
+                    'orders.id as orderId',
+                    'orders.invoice_number as invoice',
+                    'orders.order_date',
+                    'users.first_name as customer_first_name',
+                    'users.last_name as customer_last_name',
+                    'orders.purchaser_id',
+                    'distributor.first_name as referral_first_name',
+                    'distributor.last_name as referral_last_name',
+                    'categories.id as purchaser_category_id',
+                    'categories.name as purchaser_category_name',
+                    'distributor_category.id as distributor_category_id',
+                    'distributor_category.name as distributor_category_name',
+                    DB::raw("
+                        GROUP_CONCAT(DISTINCT products.name ORDER BY products.name ASC SEPARATOR ', ') AS product_names,
+                        GROUP_CONCAT(DISTINCT products.sku ORDER BY products.name ASC SEPARATOR ', ') AS product_skus,
+                        GROUP_CONCAT( products.price ORDER BY products.name ASC SEPARATOR ', ') AS product_prices,
+                        GROUP_CONCAT( order_items.quantity ORDER BY products.name ASC SEPARATOR ', ') AS product_quantities"
+                    ),
+                    DB::raw("
+                        (SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD"
+                    ),
+                    DB::raw("SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity"),
+                )
+                ->join('order_items', 'orders.id', '=', 'order_items.order_id')
+                ->join('users', 'users.id', '=', 'orders.purchaser_id')
+                ->leftJoin('users as distributor', 'distributor.id', '=', 'users.referred_by')
+                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
+                ->leftJoin('user_category as user_distributor_category', 'user_distributor_category.user_id', '=', 'distributor.id')
+
+                ->join('categories', 'categories.id', '=', 'user_category.category_id')
+                ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
+                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD')
+                ->orderByDesc('orders.order_date');
+
+            return $this;
+        }
+
 
         /**
          * used to add a where clause
@@ -110,44 +187,7 @@ use Illuminate\Support\Facades\DB;
             return $this->data->get();
         }
 
-        public function when($value, callable $callBack)
-        {
-            if($value) $this->data = call_user_func($callBack, $this);
-            return $this;
-        }
-        public function query()
-        {
-            $this->data = DB::table('orders')
-                ->select(
-                    'orders.id',
-                    'orders.invoice_number as invoice',
-                    'orders.order_date',
-                    'users.first_name as customer_first_name',
-                    'users.last_name as customer_last_name',
-                    'orders.purchaser_id',
-                    'distributor.first_name as referral_first_name',
-                    'distributor.last_name as referral_last_name',
-                    'categories.id as purchaser_category_id',
-                    'categories.name as purchaser_category_name',
-                    'distributor_category.id as distributor_category_id',
-                    'distributor_category.name as distributor_category_name',
-                    DB::raw('(SELECT COUNT(*) FROM users INNER JOIN user_category as u_c ON u_c.user_id=users.id WHERE (users.referred_by = distributor.id AND date(orders.order_date) <= date(users.enrolled_date)) AND u_c.category_id=1)  as noOfD'),
-                    DB::raw('SUM(products.price) as total_price, SUM(order_items.quantity) as total_quantity'),
-                    // DB::raw('SUM(products.price) as total_price'),
-                )
-                ->join('order_items', 'orders.id', '=', 'order_items.order_id')
-                ->join('users', 'users.id', '=', 'orders.purchaser_id')
-                ->leftJoin('users as distributor', 'distributor.id', '=', 'users.referred_by')
-                ->join('user_category', 'user_category.user_id', '=', 'orders.purchaser_id')
-                ->leftJoin('user_category as user_distributor_category', 'user_distributor_category.user_id', '=', 'distributor.id')
 
-                ->join('categories', 'categories.id', '=', 'user_category.category_id')
-                ->join('categories as distributor_category', 'distributor_category.id', '=', 'user_distributor_category.category_id')
-                ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-                ->groupBy('orders.id', 'invoice', 'order_date', 'customer_first_name', 'customer_last_name',  'purchaser_id', 'referral_first_name', 'referral_last_name', 'purchaser_category_id', 'purchaser_category_name','distributor_category_id','distributor_category_name', 'noOfD');
-
-            return $this;
-        }
 
 
 
