@@ -73,7 +73,7 @@
                         <td>{{ $fullName }}</td>
                         <td>{{ $data->noOfD }}</td>
                         <td>{{ date('d/m/Y', strtotime($data->order_date)) }}</td>
-                        <td>{{ $totalOrder }}</td>
+                        <td>{{ number_format($totalOrder, 2 )}}</td>
                         <td>{{ $commissionPercent ? "$commissionPercent%":'' }}</td>
                         <td>{{ number_format($totalPercentage,2) }}</td>
                         <td>

@@ -14,9 +14,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+
+Route::get('/', [ReportController::class, 'commissionReport'])->name('welcome');
 Route::get('/report/commission', [ReportController::class, 'commissionReport'])->name('report.commission');
 // Route::get('/report/commission/ref', [ReportController::class, 'commissionReportRefactor'])->name('report.commission.r');
 

@@ -108,9 +108,9 @@ use Illuminate\Support\Facades\DB;
             $this->data->where(function($query)use($keys, $value){
                 foreach ($keys as $key) {
                     if($key == 'id'){
-                        $query->orWhere("distributor.$key", "$value");
+                        $query->orWhere("u2.$key", "$value");
                     }else{
-                        $query->orWhere("distributor.$key", 'LIKE', "%$value%");
+                        $query->orWhere("u2.$key", 'LIKE', "%$value%");
                     }
                 }
             });
@@ -120,8 +120,8 @@ use Illuminate\Support\Facades\DB;
         public function filterByDate(?string $from, ?string $to=null)
         {
             $this->data->where(function($query)use($from, $to){
-                $query->when($from, fn($q)=> $q->whereDate('orders.order_date', '>=', $from))
-                    ->when($to, fn($q)=>$q->whereDate('orders.order_date', '<=', $to));
+                $query->when($from, fn($q)=> $q->whereDate('o.order_date', '>=', $from))
+                    ->when($to, fn($q)=>$q->whereDate('o.order_date', '<=', $to));
             });
             return $this;
         }
